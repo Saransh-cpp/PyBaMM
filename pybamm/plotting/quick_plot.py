@@ -174,6 +174,9 @@ class QuickPlot(object):
         figheight_default = min(8, 1 + 3 * self.n_rows)
         self.figsize = figsize or (figwidth_default, figheight_default)
 
+        # Legend for the full figure
+        self.fig_legend_location = "lower right"
+
         # Spatial scales (default to 1 if information not in model)
         if spatial_unit == "m":
             self.spatial_factor = 1
@@ -253,7 +256,12 @@ class QuickPlot(object):
                     )
 
         self.set_output_variables(output_variable_tuples, solutions)
+        self.output_variable_tuples = output_variable_tuples
         self.reset_axis()
+
+         # Some defaults for setup
+        self.slider_top = 0
+        self.right = 1
 
     def set_output_variables(self, output_variables, solutions):
         # Set up output variables
@@ -451,7 +459,7 @@ class QuickPlot(object):
             ):  # pragma: no cover
                 raise ValueError(f"Axis limits cannot be NaN for variables '{key}'")
 
-    def plot(self, t, dynamic=False):
+    def plot(self, t):
         """Produces a quick plot with the internal states at time t.
 
         Parameters
@@ -611,7 +619,7 @@ class QuickPlot(object):
         # Set global legend
         if len(self.labels) > 1:
             fig_legend = self.fig.legend(
-                solution_handles, self.labels, loc="lower right"
+                solution_handles, self.labels, loc=self.fig_legend_location
             )
             # Get the position of the top of the legend in relative figure units
             # There may be a better way ...
@@ -630,12 +638,8 @@ class QuickPlot(object):
             legend_top = 0
 
         # Fix layout
-        if dynamic:
-            slider_top = 0.05
-        else:
-            slider_top = 0
-        bottom = max(legend_top, slider_top)
-        self.gridspec.tight_layout(self.fig, rect=[0, bottom, 1, 1])
+        bottom = max(legend_top, self.slider_top)
+        self.gridspec.tight_layout(self.fig, rect=[0, bottom, self.right, 1])
 
     def dynamic_plot(self, testing=False, step=None):
         """
@@ -664,7 +668,8 @@ class QuickPlot(object):
             from matplotlib.widgets import Slider
 
             # create an initial plot at time 0
-            self.plot(0, dynamic=True)
+            self.slider_top = 0.05
+            self.plot(0)
 
             axcolor = "lightgoldenrodyellow"
             ax_slider = plt.axes([0.315, 0.02, 0.37, 0.03], facecolor=axcolor)
