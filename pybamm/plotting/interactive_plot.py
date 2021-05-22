@@ -19,11 +19,11 @@ class InteractivePlot(pybamm.QuickPlot):
     **Extends**: :class:`pybamm.QuickPlot`
     """
 
-    def __init__(self, sim, **kwargs):
+    def __init__(self, sim, inputs, **kwargs):
         sol = sim.solution
         super().__init__(sol, **kwargs)
         self.sim = sim
-        self.inputs = sol.all_inputs[0]
+        self.inputs = inputs
 
         # Legend for the full figure
         self.fig_legend_location = "upper right"
@@ -60,7 +60,7 @@ class InteractivePlot(pybamm.QuickPlot):
         for k, (input_name, value) in enumerate(self.inputs.items()):
             ax_box = plt.axes([0.9, k * 0.1 + 0.1, 0.08, 0.03])
             self.text_boxes[input_name] = TextBox(
-                ax_box, input_name, initial=str(value[0])
+                ax_box, input_name, initial=str(value)
             )
             self.text_boxes[input_name].on_submit(SubmitText(self, input_name))
 
