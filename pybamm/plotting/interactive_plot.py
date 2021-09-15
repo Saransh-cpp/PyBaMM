@@ -98,7 +98,7 @@ class SubmitText(object):
         print(self.plot.inputs)
 
         # Run the simulation with new inputs
-        sol = self.sim.solve(self.plot.ts_seconds[0], inputs={"Crate": 2})
+        sol = self.sim.solve(self.plot.ts_seconds[0], solver=pybamm.CasadiSolver(mode="safe"), inputs=self.plot.inputs)
         self.plot.set_output_variables(self.plot.output_variable_tuples, [sol])
         self.plot.reset_axis()
         self.plot.plot(0)
