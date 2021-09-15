@@ -1,6 +1,7 @@
 #
 # Dimensional and dimensionless parameter values, and scales
 #
+import numpy as np
 import pybamm
 import pandas as pd
 import os
@@ -571,6 +572,8 @@ class ParameterValues:
                             geometry[domain][spatial_variable][
                                 lim
                             ] = self.process_symbol(sym)
+                        elif isinstance(sym, numbers.Number):
+                            geometry[domain][spatial_variable][lim] = pybamm.Scalar(sym)
 
     def process_symbol(self, symbol):
         """Walk through the symbol and replace any Parameter with a Value.
@@ -587,7 +590,6 @@ class ParameterValues:
             Symbol with Parameter instances replaced by Value
 
         """
-
         try:
             return self._processed_symbols[symbol.id]
         except KeyError:
@@ -597,11 +599,14 @@ class ParameterValues:
             return processed_symbol
 
     def _process_symbol(self, symbol):
-        """ See :meth:`ParameterValues.process_symbol()`. """
+        """See :meth:`ParameterValues.process_symbol()`."""
 
         if isinstance(symbol, pybamm.Parameter):
             value = self[symbol.name]
             if isinstance(value, numbers.Number):
+                # Check not NaN (parameter in csv file but no value given)
+                if np.isnan(value):
+                    raise ValueError(f"Parameter '{symbol.name}' not found")
                 # Scalar inherits name (for updating parameters) and domain (for
                 # Broadcast)
                 return pybamm.Scalar(value, name=symbol.name, domain=symbol.domain)
@@ -652,6 +657,11 @@ class ParameterValues:
                     )
                 )
             elif isinstance(function_name, numbers.Number):
+                # Check not NaN (parameter in csv file but no value given)
+                if np.isnan(function_name):
+                    raise ValueError(
+                        f"Parameter '{symbol.name}' (possibly a function) not found"
+                    )
                 # If the "function" is provided is actually a scalar, return a Scalar
                 # object instead of throwing an error.
                 # Also use ones_like so that we get the right shapes
@@ -717,20 +727,25 @@ class ParameterValues:
                         return integrand.orphans[0]
                     else:
                         domain = integrand.auxiliary_domains["secondary"]
-                        if "tertiary" not in integrand.auxiliary_domains:
-                            return pybamm.PrimaryBroadcast(integrand.orphans[0], domain)
-                        else:
+                        if "tertiary" in integrand.auxiliary_domains:
                             auxiliary_domains = {
                                 "secondary": integrand.auxiliary_domains["tertiary"]
                             }
+                            if "quaternary" in integrand.auxiliary_domains:
+                                quat_domain = integrand.auxiliary_domains["quaternary"]
+                                auxiliary_domains["tertiary"] = quat_domain
                             return pybamm.FullBroadcast(
                                 integrand.orphans[0], domain, auxiliary_domains
                             )
+                        else:
+                            return pybamm.PrimaryBroadcast(integrand.orphans[0], domain)
                 # left is "integral of concatenation of broadcasts"
                 elif isinstance(new_left.child, pybamm.Concatenation) and all(
                     isinstance(child, pybamm.Broadcast)
                     for child in new_left.child.children
                 ):
+                    # in this case x_average will return a weighted sum of the variables
+                    # that were broadcasted
                     return self.process_symbol(pybamm.x_average(new_left.child))
             # make new symbol, ensure domain remains the same
             new_symbol = symbol._binary_new_copy(new_left, new_right)
@@ -803,7 +818,7 @@ class ParameterValues:
 
         df = pd.DataFrame(parameter_output)
         df = df.transpose()
-        df.to_csv(filename, header=['Value'], index_label="Name [units]")
+        df.to_csv(filename, header=["Value"], index_label="Name [units]")
 
     def print_parameters(self, parameters, output_file=None):
         """
@@ -854,6 +869,7 @@ class ParameterValues:
             "geo",
             "elec",
             "therm",
+            "half_cell",
         ]
 
         # If 'parameters' is a class, extract the dict

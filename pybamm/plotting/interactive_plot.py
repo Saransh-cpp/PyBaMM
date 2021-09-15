@@ -95,9 +95,10 @@ class SubmitText(object):
 
     def __call__(self, value):
         self.plot.inputs[self.input_name] = float(value)
+        print(self.plot.inputs)
 
         # Run the simulation with new inputs
-        sol = self.sim.solve(self.plot.ts_seconds[0], inputs=self.plot.inputs)
+        sol = self.sim.solve(self.plot.ts_seconds[0], inputs={"Crate": 2})
         self.plot.set_output_variables(self.plot.output_variable_tuples, [sol])
         self.plot.reset_axis()
         self.plot.plot(0)

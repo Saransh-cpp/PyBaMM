@@ -16,8 +16,7 @@ class Integrated(BaseElectrolyteConductivity):
         The parameters to use for this submodel
     domain : str, optional
         The domain in which the model holds
-    reactions : dict, optional
-        Dictionary of reaction terms
+
 
     References
     ----------
@@ -31,7 +30,7 @@ class Integrated(BaseElectrolyteConductivity):
 
     def __init__(self, param, domain=None):
         super().__init__(param, domain)
-        pybamm.citations.register("BrosaPlanella2020")
+        pybamm.citations.register("BrosaPlanella2021")
 
     def _higher_order_macinnes_function(self, x):
         return pybamm.log(x)

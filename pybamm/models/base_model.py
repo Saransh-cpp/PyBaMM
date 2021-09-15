@@ -1,20 +1,23 @@
 #
 # Base model class
 #
-import casadi
-import numpy as np
 import numbers
-import pybamm
 import warnings
 from collections import OrderedDict
 
+import casadi
+import numpy as np
 
-class BaseModel(object):
-    """Base model class for other models to extend.
+import pybamm
+from pybamm.expression_tree.operations.latexify import Latexify
+
+
+class BaseModel:
+    """
+    Base model class for other models to extend.
 
     Attributes
     ----------
-
     name: str
         A string giving the name of the model
     options: dict
@@ -81,12 +84,11 @@ class BaseModel(object):
         algorithm to calculate the Jacobian.
 
         Default is "casadi".
-
     """
 
     def __init__(self, name="Unnamed model"):
         self.name = name
-        self.options = {}
+        self._options = {}
 
         # Initialise empty model
         self._rhs = {}
@@ -272,6 +274,19 @@ class BaseModel(object):
         self._timescale = value
 
     @property
+    def length_scales(self):
+        "Length scales of model"
+        return self._length_scale
+
+    @length_scales.setter
+    def length_scales(self, values):
+        "Set the length scale, converting any numbers to pybamm.Scalar"
+        for domain, scale in values.items():
+            if isinstance(scale, numbers.Number):
+                values[domain] = pybamm.Scalar(scale)
+        self._length_scale = values
+
+    @property
     def parameters(self):
         """Returns all the parameters in the model"""
         self._parameters = self._find_symbols(
@@ -402,11 +417,17 @@ class BaseModel(object):
         if inplace is True:
             model = self
         else:
-            model = self.new_copy()
+            model = self.new_empty_copy()
+            model.rhs = self.rhs.copy()
+            model.algebraic = self.algebraic.copy()
+            model.initial_conditions = self.initial_conditions.copy()
+            model.boundary_conditions = self.boundary_conditions.copy()
+            model.variables = self.variables.copy()
+            model.events = self.events.copy()
 
         if isinstance(solution, pybamm.Solution):
             solution = solution.last_state
-        for var, equation in model.initial_conditions.items():
+        for var in self.initial_conditions:
             if isinstance(var, pybamm.Variable):
                 try:
                     final_state = solution[var.name]
@@ -419,7 +440,9 @@ class BaseModel(object):
                     )
                 if isinstance(solution, pybamm.Solution):
                     final_state = final_state.data
-                if final_state.ndim == 1:
+                if final_state.ndim == 0:
+                    final_state_eval = np.array([final_state])
+                elif final_state.ndim == 1:
                     final_state_eval = final_state[-1:]
                 elif final_state.ndim == 2:
                     final_state_eval = final_state[:, -1]
@@ -458,11 +481,11 @@ class BaseModel(object):
 
         # Also update the concatenated initial conditions if the model is already
         # discretised
-        if model.is_discretised:
+        if self.is_discretised:
             # Unpack slices for sorting
-            y_slices = {var.id: slce for var, slce in model.y_slices.items()}
+            y_slices = {var.id: slce for var, slce in self.y_slices.items()}
             slices = []
-            for symbol in model.initial_conditions.keys():
+            for symbol in self.initial_conditions.keys():
                 if isinstance(symbol, pybamm.Concatenation):
                     # must append the slice for the whole concatenation, so that
                     # equations get sorted correctly
@@ -631,40 +654,20 @@ class BaseModel(object):
 
     def check_algebraic_equations(self, post_discretisation):
         """
-        Check that the algebraic equations are well-posed.
-        Before discretisation, each algebraic equation key must appear in the equation
-        After discretisation, there must be at least one StateVector in each algebraic
-        equation
+        Check that the algebraic equations are well-posed. After discretisation,
+        there must be at least one StateVector in each algebraic equation.
         """
-        vars_in_bcs = set()
-        unpacker = pybamm.SymbolUnpacker(pybamm.Variable)
-        for side_eqn in self.boundary_conditions.values():
-            all_vars = unpacker.unpack_list_of_symbols(
-                [eqn for eqn, _ in side_eqn.values()]
-            )
-            vars_in_bcs.update(all_vars.keys())
-        if not post_discretisation:
-            # After the model has been defined, each algebraic equation key should
-            # appear in that algebraic equation, or in the boundary conditions
-            # this has been relaxed for concatenations for now
-            for var, eqn in self.algebraic.items():
-                if not (
-                    any(x.id == var.id for x in eqn.pre_order())
-                    or var.id in vars_in_bcs
-                    or isinstance(var, pybamm.Concatenation)
-                ):
-                    raise pybamm.ModelError(
-                        "each variable in the algebraic eqn keys must appear in the eqn"
-                    )
-        else:
-            # variables in keys don't get discretised so they will no longer match
-            # with the state vectors in the algebraic equations. Instead, we check
-            # that each algebraic equation contains some StateVector
+        if post_discretisation:
+            # Check that each algebraic equation contains some StateVector
             for eqn in self.algebraic.values():
                 if not eqn.has_symbol_of_classes(pybamm.StateVector):
                     raise pybamm.ModelError(
                         "each algebraic equation must contain at least one StateVector"
                     )
+        else:
+            # We do not perfom any checks before discretisation (most problematic
+            # cases should be caught by `check_well_determined`)
+            pass
 
     def check_ics_bcs(self):
         """Check that the initial and boundary conditions are well-posed."""
@@ -766,6 +769,22 @@ class BaseModel(object):
 
         print(div)
 
+    def check_discretised_or_discretise_inplace_if_0D(self):
+        """
+        Discretise model if it isn't already discretised
+        This only works with purely 0D models, as otherwise the mesh and spatial
+        method should be specified by the user
+        """
+        if self.is_discretised is False:
+            try:
+                disc = pybamm.Discretisation()
+                disc.process_model(self)
+            except pybamm.DiscretisationError as e:
+                raise pybamm.DiscretisationError(
+                    "Cannot automatically discretise model, model should be "
+                    "discretised before exporting casadi functions ({})".format(e)
+                )
+
     def export_casadi_objects(self, variable_names, input_parameter_order=None):
         """
         Export the constituent parts of the model (rhs, algebraic, initial conditions,
@@ -785,18 +804,7 @@ class BaseModel(object):
             Dictionary of {str: casadi object} pairs representing the model in casadi
             format
         """
-        # Discretise model if it isn't already discretised
-        # This only works with purely 0D models, as otherwise the mesh and spatial
-        # method should be specified by the user
-        if self.is_discretised is False:
-            try:
-                disc = pybamm.Discretisation()
-                disc.process_model(self)
-            except pybamm.DiscretisationError as e:
-                raise pybamm.DiscretisationError(
-                    "Cannot automatically discretise model, model should be "
-                    "discretised before exporting casadi functions ({})".format(e)
-                )
+        self.check_discretised_or_discretise_inplace_if_0D()
 
         # Create casadi functions for the model
         t_casadi = casadi.MX.sym("t")
@@ -937,8 +945,18 @@ class BaseModel(object):
 
     @property
     def default_solver(self):
-        """Return default solver based on whether model is ODE model or DAE model."""
-        return pybamm.CasadiSolver(mode="safe")
+        """Return default solver based on whether model is ODE/DAE or algebraic"""
+        if len(self.rhs) == 0 and len(self.algebraic) != 0:
+            return pybamm.CasadiAlgebraicSolver()
+        else:
+            return pybamm.CasadiSolver(mode="safe")
+
+    def latexify(self, filename=None, newline=True):
+        # For docstring, see pybamm.expression_tree.operations.latexify.Latexify
+        return Latexify(self, filename, newline).latexify()
+
+    # Set :meth:`latexify` docstring from :class:`Latexify`
+    latexify.__doc__ = Latexify.__doc__
 
 
 # helper functions for finding symbols
