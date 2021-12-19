@@ -93,6 +93,7 @@ class QuickPlot(object):
     def __init__(
         self,
         solutions,
+        x_axis="Time",
         output_variables=None,
         labels=None,
         colors=None,
@@ -104,7 +105,7 @@ class QuickPlot(object):
         variable_limits="fixed",
     ):
         input_solutions = solutions
-        solutions = []
+        self.solutions = []
         if not isinstance(input_solutions, (pybamm.Solution, pybamm.Simulation, list)):
             raise TypeError(
                 "solutions must be 'pybamm.Solution' or 'pybamm.Simulation' or list"
@@ -115,11 +116,12 @@ class QuickPlot(object):
             if isinstance(sim_or_sol, pybamm.Simulation):
                 # 'sim_or_sol' is actually a 'Simulation' object here so it has a
                 # 'Solution' attribute
-                solutions.append(sim_or_sol.solution)
+                self.solutions.append(sim_or_sol.solution)
             elif isinstance(sim_or_sol, pybamm.Solution):
-                solutions.append(sim_or_sol)
+                self.solutions.append(sim_or_sol)
 
-        models = [solution.all_models[0] for solution in solutions]
+        models = [solution.all_models[0] for solution in self.solutions]
+        self.x_axis = x_axis
 
         # Set labels
         if labels is None:
@@ -174,7 +176,7 @@ class QuickPlot(object):
 
         # Time parameters
         self.ts_seconds = [
-            solution.t * solution.timescale_eval for solution in solutions
+            solution.t * solution.timescale_eval for solution in self.solutions
         ]
         min_t = np.min([t[0] for t in self.ts_seconds])
         max_t = np.max([t[-1] for t in self.ts_seconds])
@@ -237,7 +239,7 @@ class QuickPlot(object):
                         "variable_limits must be 'fixed', 'tight', or a dict"
                     )
 
-        self.set_output_variables(output_variable_tuples, solutions)
+        self.set_output_variables(output_variable_tuples, self.solutions)
         self.reset_axis()
 
     def set_output_variables(self, output_variables, solutions):
@@ -483,8 +485,13 @@ class QuickPlot(object):
             variable_handles = []
             # Set labels for the first subplot only (avoid repetition)
             if variable_lists[0][0].dimensions == 0:
-                # 0D plot: plot as a function of time, indicating time t with a line
-                ax.set_xlabel("Time [{}]".format(self.time_unit))
+
+                if self.x_axis == "Time":
+                    # 0D plot: plot as a function of time, indicating time t with a line
+                    ax.set_xlabel("Time [{}]".format(self.time_unit))
+                elif self.x_axis == "Discharge capacity [A.h]":
+                    ax.set_xlabel("Discharge capacity [A.h]")
+
                 for i, variable_list in enumerate(variable_lists):
                     for j, variable in enumerate(variable_list):
                         if len(variable_list) == 1:
@@ -495,13 +502,23 @@ class QuickPlot(object):
                             # variables (color differentiates models)
                             linestyle = self.linestyles[j]
                         full_t = self.ts_seconds[i]
-                        (self.plots[key][i][j],) = ax.plot(
-                            full_t / self.time_scaling_factor,
-                            variable(full_t, warn=False),
-                            color=self.colors[i],
-                            linestyle=linestyle,
-                        )
-                        variable_handles.append(self.plots[key][0][j])
+                        if self.x_axis == "Time":
+                            (self.plots[key][i][j],) = ax.plot(
+                                full_t / self.time_scaling_factor,
+                                variable(full_t, warn=False),
+                                color=self.colors[i],
+                                linestyle=linestyle,
+                            )
+                            variable_handles.append(self.plots[key][0][j])
+                        elif self.x_axis == "Discharge capacity [A.h]":
+                            for sol in self.solutions:
+                                (self.plots[key][i][j],) = ax.plot(
+                                    sol["Discharge capacity [A.h]"].entries,
+                                    variable(full_t, warn=False),
+                                    color=self.colors[i],
+                                    linestyle=linestyle,
+                                )
+                                variable_handles.append(self.plots[key][0][j])
                     solution_handles.append(self.plots[key][i][0])
                 y_min, y_max = ax.get_ylim()
                 ax.set_ylim(y_min, y_max)
