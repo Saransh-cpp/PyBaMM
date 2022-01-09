@@ -178,6 +178,7 @@ class QuickPlot(object):
         ]
         min_t = np.min([t[0] for t in self.ts_seconds])
         max_t = np.max([t[-1] for t in self.ts_seconds])
+        self.x_axis = x_axis if x_axis is not None else "Time"
 
         # Set timescale
         if x_axis is None:
@@ -205,7 +206,6 @@ class QuickPlot(object):
         self.time_scaling_factor = time_scaling_factor
         self.min_t = min_t / time_scaling_factor
         self.max_t = max_t / time_scaling_factor
-        self.x_axis = x_axis
 
         # Prepare dictionary of variables
         # output_variables is a list of strings or lists, e.g.
