@@ -93,19 +93,18 @@ class QuickPlot(object):
     def __init__(
         self,
         solutions,
-        x_axis="Time",
+        x_axis=None,
         output_variables=None,
         labels=None,
         colors=None,
         linestyles=None,
         figsize=None,
         n_rows=None,
-        time_unit=None,
         spatial_unit="um",
         variable_limits="fixed",
     ):
         input_solutions = solutions
-        self.solutions = []
+        solutions = []
         if not isinstance(input_solutions, (pybamm.Solution, pybamm.Simulation, list)):
             raise TypeError(
                 "solutions must be 'pybamm.Solution' or 'pybamm.Simulation' or list"
@@ -116,12 +115,11 @@ class QuickPlot(object):
             if isinstance(sim_or_sol, pybamm.Simulation):
                 # 'sim_or_sol' is actually a 'Simulation' object here so it has a
                 # 'Solution' attribute
-                self.solutions.append(sim_or_sol.solution)
+                solutions.append(sim_or_sol.solution)
             elif isinstance(sim_or_sol, pybamm.Solution):
-                self.solutions.append(sim_or_sol)
+                solutions.append(sim_or_sol)
 
-        models = [solution.all_models[0] for solution in self.solutions]
-        self.x_axis = x_axis
+        models = [solution.all_models[0] for solution in solutions]
 
         # Set labels
         if labels is None:
@@ -176,13 +174,13 @@ class QuickPlot(object):
 
         # Time parameters
         self.ts_seconds = [
-            solution.t * solution.timescale_eval for solution in self.solutions
+            solution.t * solution.timescale_eval for solution in solutions
         ]
         min_t = np.min([t[0] for t in self.ts_seconds])
         max_t = np.max([t[-1] for t in self.ts_seconds])
 
         # Set timescale
-        if time_unit is None:
+        if x_axis is None:
             # defaults depend on how long the simulation is
             if max_t >= 3600:
                 time_scaling_factor = 3600  # time in hours
@@ -190,20 +188,24 @@ class QuickPlot(object):
             else:
                 time_scaling_factor = 1  # time in seconds
                 self.time_unit = "s"
-        elif time_unit == "seconds":
-            time_scaling_factor = 1
-            self.time_unit = "s"
-        elif time_unit == "minutes":
-            time_scaling_factor = 60
-            self.time_unit = "min"
-        elif time_unit == "hours":
-            time_scaling_factor = 3600
-            self.time_unit = "h"
+        elif x_axis[:4] == "Time":
+            if x_axis[-2] == "s":
+                time_scaling_factor = 1
+                self.time_unit = "s"
+            elif x_axis[-4:-2] == "min":
+                time_scaling_factor = 60
+                self.time_unit = "min"
+            elif x_axis[-2] == "h":
+                time_scaling_factor = 3600
+                self.time_unit = "h"
+        elif x_axis == "Discharge capacity [A.h]":
+            self.max_dis_capacity = solutions[0]["Discharge capacity [A.h]"].entries
         else:
-            raise ValueError("time unit '{}' not recognized".format(time_unit))
+            raise ValueError("x axis '{}' not recognized".format(time_unit))
         self.time_scaling_factor = time_scaling_factor
         self.min_t = min_t / time_scaling_factor
         self.max_t = max_t / time_scaling_factor
+        self.x_axis = x_axis
 
         # Prepare dictionary of variables
         # output_variables is a list of strings or lists, e.g.
@@ -239,7 +241,7 @@ class QuickPlot(object):
                         "variable_limits must be 'fixed', 'tight', or a dict"
                     )
 
-        self.set_output_variables(output_variable_tuples, self.solutions)
+        self.set_output_variables(output_variable_tuples, solutions)
         self.reset_axis()
 
     def set_output_variables(self, output_variables, solutions):
@@ -502,23 +504,21 @@ class QuickPlot(object):
                             # variables (color differentiates models)
                             linestyle = self.linestyles[j]
                         full_t = self.ts_seconds[i]
-                        if self.x_axis == "Time":
+                        if self.x_axis[:4] == "Time":
                             (self.plots[key][i][j],) = ax.plot(
                                 full_t / self.time_scaling_factor,
                                 variable(full_t, warn=False),
                                 color=self.colors[i],
                                 linestyle=linestyle,
                             )
-                            variable_handles.append(self.plots[key][0][j])
                         elif self.x_axis == "Discharge capacity [A.h]":
-                            for sol in self.solutions:
-                                (self.plots[key][i][j],) = ax.plot(
-                                    sol["Discharge capacity [A.h]"].entries,
-                                    variable(full_t, warn=False),
-                                    color=self.colors[i],
-                                    linestyle=linestyle,
-                                )
-                                variable_handles.append(self.plots[key][0][j])
+                            (self.plots[key][i][j],) = ax.plot(
+                                self.max_dis_capacity,
+                                variable(self.max_dis_capacity, warn=False),
+                                color=self.colors[i],
+                                linestyle=linestyle,
+                            )
+                        variable_handles.append(self.plots[key][0][j])
                     solution_handles.append(self.plots[key][i][0])
                 y_min, y_max = ax.get_ylim()
                 ax.set_ylim(y_min, y_max)
