@@ -39,7 +39,7 @@ class Full(BaseModel):
         self.set_interface_utilisation_submodel()
         self.set_porosity_submodel()
         self.set_active_material_submodel()
-        self.set_tortuosity_submodels()
+        self.set_transport_efficiency_submodels()
         self.set_convection_submodel()
         self.set_electrolyte_submodel()
         self.set_solid_submodel()
@@ -81,12 +81,11 @@ class Full(BaseModel):
             ] = pybamm.convection.through_cell.Full(self.param)
 
     def set_intercalation_kinetics_submodel(self):
-        self.submodels["negative interface"] = self.intercalation_kinetics(
-            self.param, "Negative", "lead-acid main", self.options
-        )
-        self.submodels["positive interface"] = self.intercalation_kinetics(
-            self.param, "Positive", "lead-acid main", self.options
-        )
+        for domain in ["Negative", "Positive"]:
+            intercalation_kinetics = self.get_intercalation_kinetics(domain)
+            self.submodels[domain.lower() + " interface"] = intercalation_kinetics(
+                self.param, domain, "lead-acid main", self.options
+            )
 
     def set_solid_submodel(self):
         if self.options["surface form"] == "false":

@@ -106,14 +106,14 @@ class DiffusionLimited(BaseInterface):
                 ]
                 j = -self.param.l_p * j_p / self.param.l_n
             elif self.order in ["composite", "full"]:
-                tor_s = variables["Separator tortuosity"]
+                tor_s = variables["Separator transport efficiency"]
                 c_ox_s = variables["Separator oxygen concentration"]
                 N_ox_neg_sep_interface = (
                     -pybamm.boundary_value(tor_s, "left")
                     * param.curlyD_ox
                     * pybamm.BoundaryGradient(c_ox_s, "left")
                 )
-                N_ox_neg_sep_interface.domain = ["current collector"]
+                N_ox_neg_sep_interface.domains = {"primary": "current collector"}
 
                 j = -N_ox_neg_sep_interface / param.C_e / -param.s_ox_Ox / param.l_n
 
