@@ -3,7 +3,7 @@ import glob
 import logging
 import subprocess
 from pathlib import Path
-from platform import system
+from platform import system, python_version  # remove
 import wheel.bdist_wheel as orig
 import site
 import shutil
@@ -191,7 +191,7 @@ setup(
     python_requires=">=3.7,<3.10",
     # List of dependencies
     install_requires=[
-        "numpy>=1.16",
+        "numpy==1.22" if python_version()[:4] == "3.6" else "numpy==1.21.6",
         "scipy>=1.3",
         "pandas>=0.24",
         "anytree>=2.4.3",
