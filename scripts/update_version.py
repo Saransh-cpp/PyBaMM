@@ -5,9 +5,7 @@ Automatically update the version number
 import json
 import os
 import re
-from datetime import date
 
-from dateutil.relativedelta import relativedelta
 
 import pybamm
 
@@ -17,7 +15,6 @@ def update_version():
     Opens file and updates the version number
     """
     release_version = os.getenv("VERSION")
-    last_day_of_month = date.today() + relativedelta(day=31)
 
     # pybamm/version.py
     with open(os.path.join(pybamm.root_dir(), "pybamm", "version.py"), "r+") as file:
@@ -78,18 +75,6 @@ def update_version():
         file.truncate(0)
         file.seek(0)
         file.write(replace_commit_id)
-
-    changelog_line1 = "# [Unreleased](https://github.com/pybamm-team/PyBaMM/)\n"
-    changelog_line2 = f"# [v{release_version}](https://github.com/pybamm-team/PyBaMM/tree/v{release_version}) - {last_day_of_month}\n\n"  # noqa: E501
-
-    # CHANGELOG.md
-    with open(os.path.join(pybamm.root_dir(), "CHANGELOG.md"), "r+") as file:
-        output_list = file.readlines()
-        output_list[0] = changelog_line1
-        output_list.insert(2, changelog_line2)
-        file.truncate(0)
-        file.seek(0)
-        file.writelines(output_list)
 
 
 if __name__ == "__main__":
