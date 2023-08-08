@@ -2,11 +2,11 @@
 
 This file contains the workflow required to make a `PyBaMM` release on GitHub and PyPI by the maintainers.
 
-## rc1 releases (automated)
+## rc0 releases (automated)
 
 1. The `update_version.yml` workflow will run on every 1st of January, May and September, creating 2 PRs -
 
-   1. Incrementing the version to `YY.MMrc1` by running `scripts/update_version.py` in the following files -
+   1. Incrementing the version to `YY.MMrc0` by running `scripts/update_version.py` in the following files -
 
       - `pybamm/version.py`
       - `docs/conf.py`
@@ -18,31 +18,63 @@ This file contains the workflow required to make a `PyBaMM` release on GitHub an
 
    The version PR should be merged into `develop`, and then the devlop-to-main PR should be merged into `main`.
 
-2. Once the tests pass, create a new GitHub _pre-release_ with the same tag (`YY.MMrc1`) and a description copied from `CHANGELOG.md`.
+<<<<<<< HEAD 2. Once the tests pass, create a new GitHub _pre-release_ with the same tag (`YY.MMrc1`) and a description copied from `CHANGELOG.md`.
+======= 2. Once the tests pass, create a new GitHub _pre-release_ with the same tag (`YY.MMrc0`) and a description copied from `CHANGELOG.md`.
+
+> > > > > > > 2d62e2353 (Logic for rc2, rc3, ...)
 
 3. This release will automatically trigger `publish_pypi.yml` and create a _pre-release_ on PyPI.
 
-## rcX and actual releases (manual)
+## rcX releases (manual)
 
-Once satisfied with the release candidate (or if a new release candidate is required after the release of `rc1`) -
+If a new release candidate is required after the release of `rc0` -
 
-1. Run `update_version.yml` manually, leaving the `release_type` field blank ("") for an actual release or with a release candidate version number (`rc2`, `rc3`, ...) for another pre-release.
+1. Fix a bug in `main` (no new features should be added to `main` once `rc0` is released) as well as `develop` individually.
 
-2. This will create the same 2 PRs mentioned in the previous section -
+2. Run `update_version.yml` manually while using `append_to_tag` to specify the release candidate version number (`rc1`, `rc2`, ...).
 
-   1. Incrementing the version to `YY.MMrcX` or `YY.MM` by running `scripts/update_version.py` in the following files -
+<<<<<<< HEAD
 
-      - `pybamm/version.py`
-      - `docs/conf.py`
-      - `CITATION.cff`
-      - `vcpkg.json`
-      - `docs/source/_static/versions.json`
+1.  Incrementing the version to `YY.MMrcX` or `YY.MM` by running `scripts/update_version.py` in the following files -
 
-   2. A PR from `develop` to `main`
+======= 3. This will create a PR incrementing the version to `YY.MMrcX` by running `scripts/update_version.py` in the following files -
 
-   The version PR should be merged into `develop`, and then the devlop-to-main PR should be merged into `main`.
+- `pybamm/version.py`
+- `docs/conf.py`
+- `CITATION.cff`
+- `vcpkg.json`
+- `docs/source/_static/versions.json`
 
-3. Once the tests pass, create a new GitHub _release_ or _pre-release_ with the same tag and a description copied from `CHANGELOG.md`.
+The version PR should be merged into `main`, because merging it into `develop` would require merging `develop` into `main`, something that we don't want (`develop` will have new features).
+
+4. Once the tests pass, create a new GitHub _pre-release_ with the same tag and a description copied from `CHANGELOG.md`.
+
+5. This release will automatically trigger `publish_pypi.yml` and create a _pre-release_ on PyPI.
+
+6. Manually merge `main` back to `develop` if substantial conflicts arise.
+
+## Actual release (manual)
+
+Once satisfied with the release candidates -
+
+1.  Run `update_version.yml` manually, leaving the `append_to_tag` field blank ("") for an actual release.
+
+2.  This will create a PR incrementing the version to `YY.MM` by running `scripts/update_version.py` in the following files -
+    > > > > > > > 2d62e2353 (Logic for rc2, rc3, ...)
+          - `pybamm/version.py`
+          - `docs/conf.py`
+          - `CITATION.cff`
+          - `vcpkg.json`
+          - `docs/source/_static/versions.json`
+
+The version PR should be merged into `main`, because merging it into `develop` would require merging `develop` into `main`, something that we don't want (`develop` will have new features).
+
+3. Once the tests pass, create a new GitHub _release_ with the same tag and a description copied from `CHANGELOG.md`.
+
+<<<<<<< HEAD 3. Once the tests pass, create a new GitHub _release_ or _pre-release_ with the same tag and a description copied from `CHANGELOG.md`.
+======= 4. This release will automatically trigger `publish_pypi.yml` and create a _release_ on PyPI.
+
+> > > > > > > 2d62e2353 (Logic for rc2, rc3, ...)
 
 4. This release will automatically trigger `publish_pypi.yml` and create a _release_ or a _pre-release_ on PyPI.
 
