@@ -10,6 +10,10 @@
         "url": "https://pybamm.readthedocs.io/en/stable/"
     },
     {
+        "version": "v23.8",
+        "url": "https://pybamm.readthedocs.io/en/v23.8/"
+    },
+    {
         "version": "v23.5",
         "url": "https://pybamm.readthedocs.io/en/v23.5/"
     },
