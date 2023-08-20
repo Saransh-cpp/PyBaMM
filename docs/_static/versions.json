@@ -10,6 +10,11 @@
         "url": "https://docs.pybamm.org/en/stable/"
     },
     {
+        "name": "v23.8",
+        "version": "23.8",
+        "url": "https://docs.pybamm.org/en/v23.8/"
+    },
+    {
         "name": "v23.8rc1",
         "version": "23.8rc1",
         "url": "https://docs.pybamm.org/en/v23.8rc1/"
